@@ -1,0 +1,15 @@
+# LIGHTNING / GPU CLOUD ONLY. Never install on the local Windows laptop.
+# First install torch/torchaudio using an explicitly selected, matched cloud wheel
+# index (setup_lightning.sh --gpu requires TORCH_INDEX_URL). No wheels are guessed.
+torch
+torchaudio
+faster-whisper>=1,<2
+silero-vad>=6,<7
+kokoro>=0.9.4,<0.10
+soundfile>=0.13,<1
+fastrtc==0.0.34
+# FastRTC 0.0.34 requires gradio<6; requirements-base.txt uses the same range.
+# Kokoro here is hexgrad/kokoro with KModel/KPipeline, NOT kokoro-onnx.
+# Its English G2P dependencies may need espeak-ng and language assets in the Studio.
+# Verify CUDA/cuDNN/CTranslate2 compatibility and licenses on the target GPU.
+# Ollama is a separate cloud service managed manually, not a Python SDK dependency.

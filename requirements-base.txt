@@ -1,0 +1,14 @@
+﻿# Local application + development tools. No model or GPU runtimes.
+# Compatible V0.1 ranges; the local environment was validated with Gradio 5.50.
+gradio>=5.49,<6
+numpy>=2,<3
+pydantic>=2,<3
+pydantic-settings>=2,<3
+python-dotenv>=1,<2
+pypdf>=5,<7
+PyYAML>=6,<7
+httpx>=0.27,<1
+pytest>=8,<10
+ruff>=0.12,<1
+# FastRTC is isolated in Lightning GPU requirements; its Gradio
+# compatibility constraint is reflected above.

@@ -1,0 +1,24 @@
+# Future policy preset; not loaded by application code in the scaffold.
+duration: 30
+difficulty: adaptive
+panel_size: 1
+supported_durations: [30, 60]
+supported_difficulties: [easy, medium, hard, adaptive]
+internal_difficulty:
+  min: 1
+  max: 5
+  levels:
+    1: Foundation
+    2: Basic Practical
+    3: Professional
+    4: Advanced Scenario
+    5: Architecture / Expert
+supported_interview_types:
+  - screening
+  - round_1
+  - round_2
+  - technical
+  - managerial
+  - behavioral
+  - system_design
+  - custom

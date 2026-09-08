@@ -1,0 +1,14 @@
+# FUTURE PLACEHOLDER; not the first POC deployment. Status-only service.
+services:
+  interview-pilot:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile
+    environment:
+      APP_ENV: local
+      LLM_PROVIDER: mock
+      STT_PROVIDER: mock
+      TTS_PROVIDER: mock
+      VAD_PROVIDER: mock
+    # TODO(M4): Mount cloud persistent model storage read-only at runtime.
+    # Never COPY weights into the image or expose candidate files as static assets.

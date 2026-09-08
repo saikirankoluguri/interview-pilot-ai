@@ -1,0 +1,13 @@
+# Descriptive presets only at M0; Settings reads .env, not this file.
+# No model IDs, weights, downloads, endpoints, or inference are configured.
+local:
+  llm: mock
+  stt: mock
+  tts: mock
+  vad: mock
+lightning:
+  llm: qwen
+  stt: whisper
+  tts: kokoro
+  vad: silero
+# TODO(M4): Explicit persistent model paths and verified runtime compatibility.

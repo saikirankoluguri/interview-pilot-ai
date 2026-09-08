@@ -1,0 +1,23 @@
+# Technical difficulty uses content evidence, never accent, speed, pitch,
+# personality, emotion, gender, facial expression, or perceived honesty.
+live_weights:
+  correctness: 0.40
+  relevance: 0.25
+  depth: 0.20
+  evidence: 0.15
+final_weights:
+  technical_score: 0.30
+  relevance_score: 0.15
+  depth_score: 0.20
+  practical_experience_score: 0.20
+  communication_score: 0.15
+adaptive:
+  rolling_weights: [0.50, 0.30, 0.20]
+  increase_at_or_above: 80
+  decrease_below: 45
+  min_consistent_answers: 2
+  max_level_step: 1
+  max_consecutive_topic: 3
+  initial_levels: {easy: 2, medium: 3, hard: 4, adaptive: 3}
+# Short histories renormalize weights. Two latest answers must agree with the
+# threshold as well as the rolling score. 45-79 holds. Fixed modes never adapt.
