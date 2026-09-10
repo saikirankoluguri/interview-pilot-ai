@@ -1,5 +1,6 @@
 """Deterministic workflow transcription, not speech recognition."""
 
+from app.providers.health import ProviderHealth
 from app.schemas.audio import AudioBuffer, Transcript
 from app.utils.errors import AudioProcessingError
 
@@ -15,3 +16,6 @@ class MockSTTProvider:
         if not audio.pcm:
             raise AudioProcessingError("No microphone audio was received.")
         return Transcript(self.transcript, is_mock=True)
+
+    async def health_check(self) -> ProviderHealth:
+        return ProviderHealth("mock", "healthy", "mock", detail="Deterministic STT fixture")

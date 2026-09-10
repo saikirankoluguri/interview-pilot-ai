@@ -1,8 +1,8 @@
 ﻿# Architecture
 
-The local V0.1 application is complete with deterministic mock providers. The
-same domain and orchestration code is prepared for real Lightning providers;
-actual model inference and cloud realtime behavior remain unvalidated.
+The local application remains complete with deterministic mock providers. Phase
+1 completes the swappable real-provider runtime for Lightning CPU; actual model
+inference and cloud benchmarks remain unvalidated until run there.
 
 ```text
 Gradio setup / voice interview / feedback
@@ -24,11 +24,20 @@ Gradio setup / voice interview / feedback
 providers, agents, storage, policy, and engine. The interview domain never checks
 for Lightning or imports concrete model libraries.
 
-Providers expose async protocols. Mock providers are deterministic workflow
-fixtures. Qwen uses an injected/configurable `httpx` client against an
-Ollama-compatible `/api/chat` endpoint and supports text plus JSON-schema output.
-Whisper, Kokoro, Silero, Torch, and FastRTC imports occur only inside explicitly
-selected cloud adapters or transport creation. Constructors do not load models.
+Providers expose async protocols plus explicit health checks. Mock providers are
+deterministic workflow fixtures. Qwen uses an injected/configurable `httpx`
+client against Ollama-compatible `/api/chat` and `/api/tags` endpoints and
+supports text plus Pydantic-validated JSON-schema output. Whisper, Kokoro,
+Silero, Torch, and FastRTC imports occur only inside explicitly selected cloud
+adapters or transport creation. Constructors do not load models. Model-backed
+providers cache one initialized runtime per application composition and serialize
+access with provider-local locks; there is no process-global model state.
+
+Provider failures are classified as unavailable, initialization, inference, or
+response-validation errors. Candidate content and audio never enter provider
+logs. Operational logs contain provider/model/device, operation, latency, and
+success state only. Explicit health results expose status, mode, model/device,
+and latency without candidate-facing infrastructure details.
 
 ## Interview lifecycle
 
@@ -59,8 +68,10 @@ Final evaluation runs after ending and produces feedback for every asked questio
 
 ## Voice pipeline
 
-Audio is normalized as mono signed 16-bit little-endian PCM with an explicit
-sample rate. The turn manager prevents overlap among Waiting, Listening,
+Audio is normalized as an `AudioBuffer`: mono signed 16-bit little-endian PCM,
+explicit sample rate/channel/encoding, and derived duration. Tuple, array, WAV,
+and transport conversions stay in `app/voice/audio_utils.py`. The turn manager
+prevents overlap among Waiting, Listening,
 Processing, and Interviewer speaking. VAD completes a buffered turn automatically;
 STT returns a transcript internally; the engine processes it; TTS returns PCM for
 browser playback. Timings record STT, live decision, TTS, and total turn latency.
@@ -83,14 +94,17 @@ preserve interview rules. V0.1 does not implement authentication; run locally or
 behind restricted Lightning access and define retention before using real data.
 There is no database, Redis, RAG, camera analysis, or web research.
 
-## Lightning design
+## Phase 1 Lightning CPU design
 
 ```text
-Private GitHub -> Lightning checkout -> verified GPU environment
- -> explicit dependency install -> explicit persistent model download
- -> Qwen service + Whisper/Kokoro/Silero adapters -> FastRTC/WebRTC -> test
+Private GitHub -> Lightning CPU checkout -> CPU dependency install
+ -> explicit persistent model download -> localhost Qwen service
+ -> Qwen/Whisper/Kokoro/Silero verification -> CPU benchmark
 ```
 
 Model weights live in configured persistent cloud storage and are never imported,
 downloaded, or started automatically. `ALLOW_MODEL_DOWNLOADS=false` is the normal
 application setting. Cloud scripts require explicit environment and confirmation.
+`requirements-ai-cpu.txt` is separate from both lightweight local requirements
+and the retained future GPU requirements. Full browser streaming and automatic
+voice turn-taking remain Phase 2.

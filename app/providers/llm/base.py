@@ -5,6 +5,7 @@ from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 
+from app.providers.health import ProviderHealth
 from app.schemas.common import DomainModel
 
 
@@ -32,3 +33,4 @@ class LLMProvider(Protocol):
     async def generate_structured(
         self, request: LLMRequest, schema: type[ResponseT]
     ) -> ResponseT: ...
+    async def health_check(self) -> ProviderHealth: ...

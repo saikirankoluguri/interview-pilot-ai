@@ -1,5 +1,8 @@
 """Audio normalization at transport/runtime boundaries; no AI dependencies."""
 
+import wave
+from io import BytesIO
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -22,6 +25,19 @@ def from_array(sample_rate: int, samples: NDArray) -> AudioBuffer:
         raise AudioProcessingError("Microphone audio contains invalid samples.")
     pcm = (np.clip(values, -1, 1) * 32767).astype("<i2").tobytes()
     return AudioBuffer(pcm=pcm, sample_rate=int(sample_rate))
+
+
+def from_wav_bytes(data: bytes) -> AudioBuffer:
+    """Normalize an uncompressed mono 16-bit WAV at file/CLI boundaries."""
+    try:
+        with wave.open(BytesIO(data), "rb") as wav:
+            if wav.getnchannels() != 1 or wav.getsampwidth() != 2 or wav.getcomptype() != "NONE":
+                raise AudioProcessingError("Audio must be mono uncompressed 16-bit PCM WAV.")
+            return AudioBuffer(pcm=wav.readframes(wav.getnframes()), sample_rate=wav.getframerate())
+    except AudioProcessingError:
+        raise
+    except (EOFError, wave.Error) as exc:
+        raise AudioProcessingError("Audio is not a readable PCM WAV file.") from exc
 
 
 def as_float32(audio: AudioBuffer, sample_rate: int = 16000) -> NDArray[np.float32]:

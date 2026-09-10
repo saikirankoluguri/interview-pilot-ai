@@ -4,7 +4,8 @@ InterviewPilot AI is a voice-first mock interview application. The local V0.1
 implementation runs the complete interview workflow with deterministic mock
 providers and requires no API key, AI model, or GPU.
 
-**Current status: local implementation complete; Lightning inference unvalidated.**
+**Current status: Phase 1 provider runtime implementation complete; Lightning CPU
+inference and benchmarks remain intentionally unvalidated.**
 
 ## Implemented locally
 
@@ -23,8 +24,9 @@ providers and requires no API key, AI model, or GPU.
 - A Gradio setup screen, voice-oriented interview screen, and post-interview
   feedback screen. The live screen has no answer textbox, transcript, scores,
   coaching, or ideal answers.
-- Lazy Qwen HTTP, faster-whisper, Kokoro, and Silero adapters plus tests using
-  mocked HTTP/fake runtimes. Heavy libraries are never imported in mock mode.
+- Complete lazy Qwen HTTP, faster-whisper, Kokoro, and Silero provider paths,
+  typed health/errors, latency instrumentation, and tests using mocked HTTP/fake
+  runtimes. Heavy libraries are never imported in mock mode.
 - Automated unit/integration tests and a five-turn developer demo.
 
 ## Voice-first flow
@@ -36,9 +38,9 @@ Browser microphone -> end-of-turn detection -> speech-to-text
 ```
 
 Local Gradio audio validates the voice workflow without real recognition or
-speech. Lightning uses the optional FastRTC/WebRTC boundary for continuous
-send/receive audio. FastRTC 0.0.34 requires Gradio below 6, so the base dependency
-range is `gradio>=5.49,<6` until that integration is upgraded and retested.
+speech. Phase 1 supports programmatic real-provider calls in Lightning CPU.
+Continuous FastRTC/WebRTC turn-taking, interruption, and browser endpointing are
+Phase 2 and are not part of this implementation.
 
 ## Why provider abstraction?
 
@@ -80,23 +82,52 @@ scores/report as workflow fixtures, not an assessment of a candidate.
 | Environment | LLM | STT | TTS | VAD | Realtime transport |
 | --- | --- | --- | --- | --- | --- |
 | Local/test | mock | mock | mock | mock | Gradio audio |
-| Lightning | qwen | whisper | kokoro | silero | FastRTC/WebRTC |
+| Lightning CPU | qwen | whisper | kokoro | silero | Programmatic/Gradio in Phase 1 |
 
 Local/test settings reject real providers and reject model downloads. Lightning
-requires `APP_ENV=lightning` plus explicit provider selection. See
-[the Lightning guide](docs/LIGHTNING_SETUP.md) before cloud work.
+requires `APP_ENV=lightning` plus explicit provider selection. The CPU starting
+point is Qwen 1.5B-class, faster-whisper `base.en` on CPU/int8, Kokoro on CPU, and
+Silero on CPU. These are environment-driven choices, not hardcoded production
+decisions. See [the Lightning guide](docs/LIGHTNING_SETUP.md) before cloud work.
+
+Phase 1 provider settings include `LLM_DEVICE`, `LLM_MODEL`, `LLM_BASE_URL`,
+`LLM_TIMEOUT_SECONDS`, `LLM_TEMPERATURE`, `LLM_MAX_OUTPUT_TOKENS`,
+`WHISPER_MODEL_SIZE`, optional `WHISPER_MODEL_PATH`, `WHISPER_DEVICE`,
+`WHISPER_COMPUTE_TYPE`, `WHISPER_LANGUAGE`, `TTS_DEVICE`, `TTS_VOICE`,
+`TTS_SPEED`, optional `TTS_MODEL_PATH`, `VAD_DEVICE`, optional `VAD_MODEL_PATH`,
+`VAD_THRESHOLD`, `VAD_MIN_SPEECH_MS`, `VAD_MIN_SILENCE_MS`, and
+`PROVIDER_HEALTHCHECK_ENABLED`. Safe values are shown in `.env.example`.
+
+## Lightning CPU Phase 1
+
+After cloning in a Linux CPU Studio and reviewing the scripts:
+
+```bash
+export APP_ENV=lightning
+bash scripts/setup_lightning_cpu.sh
+# Separately and explicitly prepare only the selected model assets:
+bash scripts/download_models.sh --cpu --provider all --confirm-cloud-downloads
+bash scripts/start_qwen.sh
+python scripts/verify_real_providers.py --provider llm
+python scripts/verify_real_providers.py --provider stt --audio sample.wav
+python scripts/benchmark_cpu_providers.py --provider all --audio sample.wav
+```
+
+Package setup, model download, service start, verification, and benchmarking are
+separate operations. None runs during application import or startup.
 
 ## Not yet validated
 
 - Actual Qwen inference or its selected Ollama service/model tag.
-- Actual faster-whisper transcription and GPU/CUDA/cuDNN compatibility.
+- Actual faster-whisper CPU/int8 transcription and model cache compatibility.
 - Actual Kokoro synthesis, voice assets, and language dependencies.
 - Actual Silero end-of-turn behavior with live microphone conditions.
-- FastRTC/WebRTC behavior through Lightning HTTPS/port routing.
-- The 1-4 second end-of-turn latency target on a real GPU.
+- CPU latency and memory results for the selected Qwen/Whisper/Kokoro/Silero assets.
+- FastRTC/WebRTC browser orchestration, automatic pause detection, and barge-in
+  (Phase 2).
 
-These tasks require Lightning GPU execution and model assets. No cloud provider,
-model, or GPU package is needed or used locally.
+These tasks require Lightning execution and model assets. No cloud provider,
+model, or AI runtime package is needed or used locally.
 
 ## Privacy
 

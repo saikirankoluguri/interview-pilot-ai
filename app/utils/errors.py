@@ -10,7 +10,23 @@ class ConfigurationError(InterviewError):
 
 
 class ProviderError(InterviewError):
-    """Unavailable provider or invalid model output."""
+    """Base class for safe provider failures exposed at application boundaries."""
+
+
+class ProviderUnavailableError(ProviderError):
+    """A configured provider service cannot currently be reached."""
+
+
+class ProviderInitializationError(ProviderError):
+    """An optional runtime or configured model could not be initialized."""
+
+
+class ProviderInferenceError(ProviderError):
+    """A provider initialized successfully but inference failed."""
+
+
+class ProviderResponseValidationError(ProviderError):
+    """A provider returned malformed output or output outside the requested schema."""
 
 
 class DocumentParseError(InterviewError):

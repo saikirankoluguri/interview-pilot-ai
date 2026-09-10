@@ -3,10 +3,12 @@
 from dataclasses import dataclass
 
 from app.config.settings import Settings
+from app.providers.health import ProviderHealth
 from app.providers.llm.base import LLMProvider
 from app.providers.stt.base import SpeechToTextProvider
 from app.providers.tts.base import TextToSpeechProvider
 from app.providers.vad.base import VoiceActivityDetectionProvider
+from app.utils.errors import ConfigurationError
 
 
 def create_llm_provider(settings: Settings) -> LLMProvider:
@@ -14,6 +16,8 @@ def create_llm_provider(settings: Settings) -> LLMProvider:
         from app.providers.llm.mock import MockLLMProvider
 
         return MockLLMProvider()
+    if settings.llm_provider != "qwen":
+        raise ConfigurationError(f"Unknown LLM provider: {settings.llm_provider}")
     from app.providers.llm.qwen import QwenProvider
 
     return QwenProvider(settings)
@@ -24,6 +28,8 @@ def create_stt_provider(settings: Settings) -> SpeechToTextProvider:
         from app.providers.stt.mock import MockSTTProvider
 
         return MockSTTProvider()
+    if settings.stt_provider != "whisper":
+        raise ConfigurationError(f"Unknown STT provider: {settings.stt_provider}")
     from app.providers.stt.whisper import WhisperProvider
 
     return WhisperProvider(settings)
@@ -34,6 +40,8 @@ def create_tts_provider(settings: Settings) -> TextToSpeechProvider:
         from app.providers.tts.mock import MockTTSProvider
 
         return MockTTSProvider()
+    if settings.tts_provider != "kokoro":
+        raise ConfigurationError(f"Unknown TTS provider: {settings.tts_provider}")
     from app.providers.tts.kokoro import KokoroProvider
 
     return KokoroProvider(settings)
@@ -44,6 +52,8 @@ def create_vad_provider(settings: Settings) -> VoiceActivityDetectionProvider:
         from app.providers.vad.mock import MockVADProvider
 
         return MockVADProvider()
+    if settings.vad_provider != "silero":
+        raise ConfigurationError(f"Unknown VAD provider: {settings.vad_provider}")
     from app.providers.vad.silero import SileroProvider
 
     return SileroProvider(settings)
@@ -55,6 +65,15 @@ class Providers:
     stt: SpeechToTextProvider
     tts: TextToSpeechProvider
     vad: VoiceActivityDetectionProvider
+
+    async def health_check(self) -> dict[str, ProviderHealth]:
+        """Run explicit checks only when called; application startup never invokes this."""
+        return {
+            "llm": await self.llm.health_check(),
+            "stt": await self.stt.health_check(),
+            "tts": await self.tts.health_check(),
+            "vad": await self.vad.health_check(),
+        }
 
 
 def create_providers(settings: Settings) -> Providers:

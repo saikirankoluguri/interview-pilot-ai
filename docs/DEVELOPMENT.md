@@ -36,9 +36,35 @@ Base dependencies contain no AI model runtime. Gradio is constrained to
 this supported Gradio range; upgrade it to `api_visibility="private"` only when a
 FastRTC release supporting Gradio 6 is selected and the UI is retested.
 
-GPU dependencies are isolated in `requirements-gpu.txt` and must never be
-installed on the local laptop. Do not run `scripts/setup_lightning.sh` or
-`scripts/download_models.sh` locally.
+CPU AI dependencies are isolated in `requirements-ai-cpu.txt`; GPU dependencies
+remain isolated in `requirements-gpu.txt`. Neither belongs on the local laptop.
+The base NumPy range is `>=1.26,<2` to remain compatible with common Lightning CPU
+images whose SciPy/matplotlib/scikit-learn wheels still require NumPy below 2.
+Do not run any Lightning setup, model-download, service-start, verification, or
+benchmark script locally.
+
+## Provider development
+
+Real-provider constructors are lightweight. Import optional packages and create
+models only inside the selected provider's first inference or explicit health
+check. Keep all audio entering STT/TTS/VAD in `AudioBuffer`; add transport/file
+conversion only in `app/voice/audio_utils.py`.
+
+Provider tests must use `httpx.MockTransport` or fake modules inserted into
+`sys.modules`. Tests set Hugging Face offline mode and block sockets. Useful safe
+local commands are:
+
+```powershell
+./.venv/Scripts/python.exe -m compileall app scripts tests
+./.venv/Scripts/ruff.exe check .
+./.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider
+./.venv/Scripts/python.exe -m app.main --check
+```
+
+Lightning-only commands and configuration are documented in
+`docs/LIGHTNING_SETUP.md`. Phase 1 stops at provider-level VAD. Do not add the
+FastRTC streaming state machine, automatic browser pause handling, interruption,
+or full-duplex audio until Phase 2.
 
 ## Design rules
 

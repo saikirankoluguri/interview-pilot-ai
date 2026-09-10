@@ -3,6 +3,7 @@
 from statistics import mean
 
 from app.interview.session import InterviewSession
+from app.providers.health import ProviderHealth
 from app.providers.llm.base import LLMRequest, LLMTask, ResponseT
 from app.schemas.evaluation import (
     AdaptiveAction,
@@ -88,6 +89,9 @@ class MockLLMProvider:
         else:
             raise ProviderError("Unsupported structured mock request.")
         return schema.model_validate(result.model_dump(mode="json"))
+
+    async def health_check(self) -> ProviderHealth:
+        return ProviderHealth("mock", "healthy", "mock", detail="Deterministic LLM fixture")
 
     def _plan(self, session: InterviewSession) -> InterviewPlan:
         topics = ROUND_TOPICS[session.settings.round.value]

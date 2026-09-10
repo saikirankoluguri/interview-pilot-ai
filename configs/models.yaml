@@ -1,5 +1,5 @@
-# Descriptive presets only at M0; Settings reads .env, not this file.
-# No model IDs, weights, downloads, endpoints, or inference are configured.
+# Descriptive presets. Settings reads environment variables, not this file.
+# These choices do not trigger downloads or inference.
 local:
   llm: mock
   stt: mock
@@ -7,7 +7,15 @@ local:
   vad: mock
 lightning:
   llm: qwen
+  llm_model: qwen2.5:1.5b
+  llm_device: cpu
   stt: whisper
+  whisper_model_size: base.en
+  whisper_device: cpu
+  whisper_compute_type: int8
   tts: kokoro
+  tts_device: cpu
   vad: silero
-# TODO(M4): Explicit persistent model paths and verified runtime compatibility.
+  vad_device: cpu
+# Try a 1.5B-class Qwen model first, then a 3B-class model only if CPU latency
+# and memory measurements permit. Exact runtime tags must be verified in Lightning.

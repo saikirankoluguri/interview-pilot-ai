@@ -1,7 +1,9 @@
 ﻿# Local application + development tools. No model or GPU runtimes.
 # Compatible V0.1 ranges; the local environment was validated with Gradio 5.50.
 gradio>=5.49,<6
-numpy>=2,<3
+# NumPy 1.26 keeps compatibility with common Lightning CPU images that include
+# SciPy, matplotlib, and scikit-learn builds compiled for NumPy <2.
+numpy>=1.26,<2
 pydantic>=2,<3
 pydantic-settings>=2,<3
 python-dotenv>=1,<2

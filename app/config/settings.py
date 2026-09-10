@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.schemas.interview import Difficulty
@@ -20,23 +20,45 @@ class Settings(BaseSettings):
     stt_provider: Literal["mock", "whisper"] = "mock"
     tts_provider: Literal["mock", "kokoro"] = "mock"
     vad_provider: Literal["mock", "silero"] = "mock"
-    llm_model: str = "qwen2.5:7b"
+    llm_device: str = "cpu"
+    llm_model: str = "qwen2.5:1.5b"
     llm_base_url: str = "http://127.0.0.1:11434"
-    provider_timeout_seconds: float = Field(default=60, gt=0, le=300)
-    whisper_model_size: str = "small.en"
-    whisper_device: str = "cuda"
-    whisper_compute_type: str = "float16"
+    llm_timeout_seconds: float = Field(
+        default=60,
+        gt=0,
+        le=300,
+        validation_alias=AliasChoices("LLM_TIMEOUT_SECONDS", "PROVIDER_TIMEOUT_SECONDS"),
+    )
+    llm_temperature: float = Field(default=0.1, ge=0, le=2)
+    llm_max_output_tokens: int = Field(default=4096, ge=64, le=32768)
+    whisper_model_size: str = "base.en"
+    whisper_model_path: Path | None = None
+    whisper_device: str = "cpu"
+    whisper_compute_type: str = "int8"
+    whisper_language: str | None = "en"
     model_cache_dir: Path = ROOT / "models"
     allow_model_downloads: bool = False
+    tts_device: str = "cpu"
     tts_voice: str = "af_heart"
     tts_speed: float = Field(default=1, ge=0.5, le=2)
     tts_sample_rate: Literal[24000] = 24000
+    tts_model_path: Path | None = None
+    tts_max_text_characters: int = Field(default=1000, ge=50, le=5000)
     kokoro_lang_code: str = "a"
     kokoro_model_path: Path | None = None
     kokoro_config_path: Path | None = None
     kokoro_voice_path: Path | None = None
-    vad_silence_seconds: float = Field(default=0.7, ge=0.2, le=3)
+    vad_device: str = "cpu"
+    vad_model_path: Path | None = None
     vad_threshold: float = Field(default=0.5, gt=0, lt=1)
+    vad_min_speech_ms: int = Field(default=250, ge=0, le=10000)
+    vad_min_silence_ms: int = Field(
+        default=700,
+        ge=100,
+        le=10000,
+        validation_alias=AliasChoices("VAD_MIN_SILENCE_MS", "VAD_SILENCE_MS"),
+    )
+    provider_healthcheck_enabled: bool = False
     interview_default_duration_minutes: Literal[30, 60] = 30
     interview_default_difficulty: Difficulty = Difficulty.ADAPTIVE
     data_dir: Path = ROOT / "data"
@@ -53,10 +75,37 @@ class Settings(BaseSettings):
     server_name: str = "127.0.0.1"
     server_port: int = Field(default=7860, ge=1024, le=65535)
 
+    @property
+    def provider_timeout_seconds(self) -> float:
+        """Compatibility accessor for the pre-Phase-1 setting name."""
+        return self.llm_timeout_seconds
+
+    @property
+    def vad_silence_seconds(self) -> float:
+        """Compatibility accessor for existing voice orchestration."""
+        return self.vad_min_silence_ms / 1000
+
+    @property
+    def resolved_kokoro_model_path(self) -> Path | None:
+        return self.tts_model_path or self.kokoro_model_path
+
     @field_validator("interview_default_duration_minutes", "tts_sample_rate", mode="before")
     @classmethod
     def parse_numeric_choice(cls, value: object) -> object:
         return int(value) if isinstance(value, str) else value
+
+    @field_validator(
+        "whisper_model_path",
+        "tts_model_path",
+        "kokoro_model_path",
+        "kokoro_config_path",
+        "kokoro_voice_path",
+        "vad_model_path",
+        mode="before",
+    )
+    @classmethod
+    def blank_optional_path(cls, value: object) -> object:
+        return None if value == "" else value
 
     @model_validator(mode="after")
     def safe_runtime(self) -> "Settings":

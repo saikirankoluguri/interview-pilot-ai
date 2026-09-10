@@ -1,0 +1,11 @@
+# LIGHTNING CPU AI RUNTIME ONLY. Do not install on the local Windows laptop.
+# Install requirements-base.txt first, then use scripts/setup_lightning_cpu.sh so
+# torch is taken from PyTorch's CPU-only wheel index rather than a CUDA index.
+torch>=2.2,<3
+torchaudio>=2.2,<3
+faster-whisper>=1,<2
+silero-vad>=6,<7
+kokoro>=0.9.4,<0.10
+soundfile>=0.13,<1
+# NumPy remains <2 through requirements-base.txt for compatibility with the
+# preinstalled scientific stack commonly present in Lightning CPU Studios.
