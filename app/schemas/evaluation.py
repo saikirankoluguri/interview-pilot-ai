@@ -46,10 +46,40 @@ class LiveTurnDecision(DomainModel):
 
 class TurnLatencyMetrics(DomainModel):
     started_at: AwareDatetime = Field(default_factory=utc_now)
+    speech_end_at: AwareDatetime | None = None
+    stt_started_at: AwareDatetime | None = None
+    stt_ended_at: AwareDatetime | None = None
+    llm_started_at: AwareDatetime | None = None
+    llm_ended_at: AwareDatetime | None = None
+    tts_started_at: AwareDatetime | None = None
+    tts_ended_at: AwareDatetime | None = None
+    audio_playback_ready_at: AwareDatetime | None = None
     stt_seconds: float = Field(default=0, ge=0)
     llm_seconds: float = Field(default=0, ge=0)
     tts_seconds: float = Field(default=0, ge=0)
     total_seconds: float = Field(default=0, ge=0)
+    speech_end_to_audio_ready_seconds: float = Field(default=0, ge=0)
+    time_to_first_audio_seconds: float | None = Field(default=None, ge=0)
+
+    @property
+    def stt_ms(self) -> float:
+        return self.stt_seconds * 1000
+
+    @property
+    def llm_ms(self) -> float:
+        return self.llm_seconds * 1000
+
+    @property
+    def tts_ms(self) -> float:
+        return self.tts_seconds * 1000
+
+    @property
+    def total_processing_ms(self) -> float:
+        return self.total_seconds * 1000
+
+    @property
+    def speech_end_to_audio_ready_ms(self) -> float:
+        return self.speech_end_to_audio_ready_seconds * 1000
 
 
 class InterviewTurn(DomainModel):

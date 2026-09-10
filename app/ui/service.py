@@ -12,6 +12,7 @@ from app.schemas.candidate import CandidateProfile
 from app.schemas.interview import Difficulty, InterviewRound, InterviewSettings, SessionStatus
 from app.utils.errors import InterviewError
 from app.voice.audio_pipeline import AudioPipeline, VoiceResponse
+from app.voice.turn_manager import ConnectionState, TurnState
 
 
 @dataclass(eq=False)
@@ -74,8 +75,17 @@ class UIService:
                 stored = self.app.uploads.save(handle.read(self.app.settings.max_upload_bytes + 1))
             providers = self.app.providers
             voice = AudioPipeline(
-                self.app.engine, session.session_id, providers.stt, providers.tts, providers.vad
+                self.app.engine,
+                session.session_id,
+                providers.stt,
+                providers.tts,
+                providers.vad,
+                self.app.settings,
             )
+            if self.app.settings.realtime_transport == "gradio":
+                voice.connect()
+            else:
+                voice.connection_state = ConnectionState.CONNECTING
             response = await voice.start()
             return UIContext(session.session_id, voice), response
         except Exception:
@@ -85,9 +95,16 @@ class UIService:
                 self.app.uploads.delete(stored)
             raise
 
-    def public_status(self, context: UIContext | None) -> tuple[str, str, str]:
+    def public_status(self, context: UIContext | None) -> tuple[str, str, str, str, str, str]:
         if context is None:
-            return "Ready for setup", "30:00", "Waiting"
+            return (
+                "Ready for setup",
+                "30:00",
+                TurnState.IDLE.value,
+                "Inactive",
+                "Idle",
+                ConnectionState.DISCONNECTED.value,
+            )
         session = self.app.engine.get_session(context.session_id)
         remaining = int(session.remaining_seconds())
         panel = (
@@ -103,10 +120,28 @@ class UIService:
             f"| {session.settings.round.value} | {session.status.value}\n\n"
             f"Panel: {safe_text(name)}"
         )
+        voice_state = context.voice.turns.state
+        microphone = (
+            "Gated"
+            if voice_state == TurnState.INTERVIEWER_SPEAKING
+            else "Active"
+            if voice_state in {TurnState.LISTENING, TurnState.CANDIDATE_SPEAKING}
+            else "Inactive"
+        )
+        audio = (
+            "Playing"
+            if voice_state == TurnState.INTERVIEWER_SPEAKING
+            else "Preparing"
+            if voice_state in {TurnState.PREPARING, TurnState.PROCESSING, TurnState.ENDING}
+            else "Idle"
+        )
         return (
             status,
             f"{remaining // 60:02d}:{remaining % 60:02d}",
-            context.voice.turns.state.value,
+            voice_state.value,
+            microphone,
+            audio,
+            context.voice.connection_state.value,
         )
 
     def feedback(self, context: UIContext | None) -> str:

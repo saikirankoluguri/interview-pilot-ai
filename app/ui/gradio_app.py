@@ -9,11 +9,11 @@ from app.bootstrap import Application, build_application
 from app.schemas.interview import SessionStatus
 from app.ui.feedback_screen import build_feedback_screen
 from app.ui.interview_screen import build_interview_screen
+from app.ui.realtime_bridge import create_realtime_transport
 from app.ui.service import UIService
 from app.ui.setup_screen import build_setup_screen
 from app.utils.errors import InterviewError
 from app.voice.audio_utils import from_array
-from app.voice.realtime import create_realtime_transport
 from app.voice.turn_manager import TurnState
 
 if TYPE_CHECKING:
@@ -50,7 +50,14 @@ def create_app(application: Application | None = None) -> "gr.Blocks":
             with gr.Tab("Feedback", id="feedback"):
                 feedback = build_feedback_screen()
         timer = gr.Timer(1, active=True)
-        public_outputs = [interview.status, interview.timer, interview.voice_state]
+        public_outputs = [
+            interview.status,
+            interview.timer,
+            interview.voice_state,
+            interview.microphone_state,
+            interview.audio_state,
+            interview.connection_state,
+        ]
 
         async def start(*values):
             try:
@@ -152,12 +159,17 @@ def create_app(application: Application | None = None) -> "gr.Blocks":
             if state is None:
                 raise gr.Error("Start an interview first.")
             try:
-                await state.voice.end()
-                state.feedback_shown = True
+                if state.voice.is_busy:
+                    state.voice.request_end()
+                    closing_audio = gr.skip()
+                else:
+                    response = await state.voice.end()
+                    closing_audio = gr.skip() if realtime else response.audio.to_wav()
                 return (
+                    closing_audio,
                     *service.public_status(state),
-                    service.feedback(state),
-                    gr.Tabs(selected="feedback"),
+                    gr.skip(),
+                    gr.Tabs(selected="interview"),
                     gr.skip() if realtime else gr.Audio(recording=False),
                 )
             except InterviewError as exc:
@@ -166,26 +178,37 @@ def create_app(application: Application | None = None) -> "gr.Blocks":
         interview.end.click(
             finish,
             inputs=[context],
-            outputs=public_outputs + [feedback, tabs, interview.microphone],
+            outputs=[interview.speaker] + public_outputs + [feedback, tabs, interview.microphone],
             api_name=False,
             concurrency_limit=1,
         )
 
         async def tick(state):
             if state is None:
-                return *service.public_status(None), gr.skip(), gr.skip(), gr.skip()
+                return gr.skip(), *service.public_status(None), gr.skip(), gr.skip(), gr.skip()
             session = application.engine.get_session(state.session_id)
+            closing_audio = gr.skip()
             if session.status == SessionStatus.IN_PROGRESS and session.should_end():
-                if state.voice.turns.state != TurnState.PROCESSING:
-                    await state.voice.end()
-                    session = application.engine.get_session(state.session_id)
+                if state.voice.is_busy:
+                    state.voice.request_end()
+                elif state.voice.turns.state not in {
+                    TurnState.ENDING,
+                    TurnState.INTERVIEWER_SPEAKING,
+                }:
+                    response = await state.voice.end(reason="timer")
+                    if not realtime:
+                        closing_audio = response.audio.to_wav()
+                session = application.engine.get_session(state.session_id)
+            state.voice.refresh()
             done = session.status == SessionStatus.COMPLETED
-            switch_to_feedback = done and not state.feedback_shown
-            if done:
+            playback_done = state.voice.turns.state == TurnState.COMPLETED
+            switch_to_feedback = done and playback_done and not state.feedback_shown
+            if switch_to_feedback:
                 state.feedback_shown = True
             return (
+                closing_audio,
                 *service.public_status(state),
-                service.feedback(state) if done else gr.skip(),
+                service.feedback(state) if switch_to_feedback else gr.skip(),
                 gr.Tabs(selected="feedback") if switch_to_feedback else gr.skip(),
                 gr.Audio(recording=False) if done and not realtime else gr.skip(),
             )
@@ -193,7 +216,7 @@ def create_app(application: Application | None = None) -> "gr.Blocks":
         timer.tick(
             tick,
             inputs=[context],
-            outputs=public_outputs + [feedback, tabs, interview.microphone],
+            outputs=[interview.speaker] + public_outputs + [feedback, tabs, interview.microphone],
             api_name=False,
             concurrency_limit=1,
             show_progress="hidden",

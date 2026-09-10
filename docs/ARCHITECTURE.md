@@ -1,8 +1,8 @@
 ﻿# Architecture
 
-The local application remains complete with deterministic mock providers. Phase
-1 completes the swappable real-provider runtime for Lightning CPU; actual model
-inference and cloud benchmarks remain unvalidated until run there.
+The application has a deterministic local provider stack and a Phase 2 realtime
+voice layer. Real provider inference, browser audio, and CPU latency remain
+unvalidated until the documented Lightning run.
 
 ```text
 Gradio setup / voice interview / feedback
@@ -15,7 +15,7 @@ Gradio setup / voice interview / feedback
               \      |      /
                   LLMProvider
                     |
- Voice pipeline -- STTProvider / TTSProvider / VADProvider
+ Realtime controller -- STTProvider / TTSProvider / VADProvider
 ```
 
 ## Boundaries
@@ -66,20 +66,57 @@ Live candidate output is an `InterviewMessage` containing only spoken text,
 panel identity, and completion status. Hidden evaluation never enters the live UI.
 Final evaluation runs after ending and produces feedback for every asked question.
 
-## Voice pipeline
+## Realtime voice pipeline
+
+```text
+Browser microphone
+       |
+FastRTC / WebRTC
+       |
+Realtime bridge (transport conversion and clean WebRTC errors)
+       |
+RealtimeSessionController <---- per-session lock / playback events
+       |
+TurnManager -> VADProvider -> bounded candidate AudioBuffer
+                              |
+                         STTProvider
+                              |
+                       InterviewEngine
+                              |
+                   one LiveTurnDecision
+                              |
+                         TTSProvider
+                              |
+Realtime bridge -> FastRTC / WebRTC -> browser speakers
+```
 
 Audio is normalized as an `AudioBuffer`: mono signed 16-bit little-endian PCM,
 explicit sample rate/channel/encoding, and derived duration. Tuple, array, WAV,
-and transport conversions stay in `app/voice/audio_utils.py`. The turn manager
-prevents overlap among Waiting, Listening,
-Processing, and Interviewer speaking. VAD completes a buffered turn automatically;
-STT returns a transcript internally; the engine processes it; TTS returns PCM for
-browser playback. Timings record STT, live decision, TTS, and total turn latency.
-A failed playback can be retried without submitting the answer a second time.
+and transport conversions stay in `app/voice/audio_utils.py`.
 
-Local mode uses Gradio microphone streaming plus deterministic mock VAD/STT/TTS.
-The optional FastRTC adapter implements a send/receive handler for Lightning.
-FastRTC 0.0.34 currently constrains Gradio to `<6`.
+The protected voice states are `IDLE`, `PREPARING`, `INTERVIEWER_SPEAKING`,
+`LISTENING`, `CANDIDATE_SPEAKING`, `PROCESSING`, `ENDING`, `COMPLETED`,
+and `ERROR`. Microphone chunks are ignored while interviewer audio plays.
+Silence can close a turn only after speech has started; pre-speech silence instead
+triggers a gentle reminder and, after a larger threshold, an inactivity pause.
+Buffers and turn duration are bounded.
+
+Each controller owns its processing and ingestion locks, so one session cannot
+submit overlapping STT/LLM/TTS work and does not block other sessions. Completed
+turns persist through the engine. A reconnect can attach to the same in-progress
+session without generating another question. End requests immediately gate input
+and safely finish in-flight work before the closing message/report.
+
+Local mode uses deterministic mock VAD/STT/TTS. The separate, lazy FastRTC adapter
+implements a per-connection async send/receive handler for Lightning; transport
+code does not own interview decisions. FastRTC 0.0.34 currently constrains Gradio
+to `<6`. Browser constraints request echo cancellation, noise suppression, and
+automatic gain control, while application gating remains authoritative.
+
+Per-turn metrics timestamp speech end, STT/LLM/TTS start and end, and audio
+playback readiness. They derive provider durations, total processing duration,
+and speech-end-to-audio-ready duration. These diagnostics are persisted but hidden
+from the candidate UI by default.
 
 ## Storage and privacy
 
@@ -106,5 +143,5 @@ Model weights live in configured persistent cloud storage and are never imported
 downloaded, or started automatically. `ALLOW_MODEL_DOWNLOADS=false` is the normal
 application setting. Cloud scripts require explicit environment and confirmation.
 `requirements-ai-cpu.txt` is separate from both lightweight local requirements
-and the retained future GPU requirements. Full browser streaming and automatic
-voice turn-taking remain Phase 2.
+and the retained future GPU requirements. It pins the Lightning realtime runtime
+to FastRTC 0.0.34 without changing the lightweight local installation.

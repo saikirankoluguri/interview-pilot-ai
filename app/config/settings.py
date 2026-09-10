@@ -58,6 +58,18 @@ class Settings(BaseSettings):
         le=10000,
         validation_alias=AliasChoices("VAD_MIN_SILENCE_MS", "VAD_SILENCE_MS"),
     )
+    vad_speech_pad_ms: int = Field(default=0, ge=0, le=2000)
+    max_candidate_turn_seconds: float = Field(
+        default=180,
+        ge=1,
+        le=300,
+        validation_alias=AliasChoices("MAX_CANDIDATE_TURN_SECONDS", "TURN_MAX_SECONDS"),
+    )
+    no_speech_timeout_seconds: float = Field(default=30, ge=5, le=300)
+    no_speech_end_seconds: float = Field(default=120, ge=10, le=900)
+    realtime_vad_interval_ms: int = Field(default=250, ge=50, le=2000)
+    realtime_min_transcript_characters: int = Field(default=2, ge=1, le=100)
+    debug_ui: bool = False
     provider_healthcheck_enabled: bool = False
     interview_default_duration_minutes: Literal[30, 60] = 30
     interview_default_difficulty: Difficulty = Difficulty.ADAPTIVE
@@ -118,6 +130,8 @@ class Settings(BaseSettings):
             raise ValueError("Model downloads are forbidden in local/test mode.")
         if self.company_research_enabled:
             raise ValueError("Company research is not implemented in V0.1.")
+        if self.no_speech_end_seconds <= self.no_speech_timeout_seconds:
+            raise ValueError("NO_SPEECH_END_SECONDS must exceed NO_SPEECH_TIMEOUT_SECONDS.")
         for field, folder in (
             ("upload_dir", "uploads"),
             ("recording_dir", "recordings"),

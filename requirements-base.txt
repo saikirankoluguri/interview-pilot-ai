@@ -12,5 +12,5 @@ PyYAML>=6,<7
 httpx>=0.27,<1
 pytest>=8,<10
 ruff>=0.12,<1
-# FastRTC is isolated in Lightning GPU requirements; its Gradio
-# compatibility constraint is reflected above.
+# FastRTC is isolated in Lightning CPU/GPU requirements; its Gradio
+# compatibility constraint is reflected above. Local mock mode imports it lazily.

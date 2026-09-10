@@ -4,8 +4,9 @@ InterviewPilot AI is a voice-first mock interview application. The local V0.1
 implementation runs the complete interview workflow with deterministic mock
 providers and requires no API key, AI model, or GPU.
 
-**Current status: Phase 1 provider runtime implementation complete; Lightning CPU
-inference and benchmarks remain intentionally unvalidated.**
+**Current status: Phase 2 realtime voice architecture is implemented and locally
+verified with deterministic mocks. Real browser audio and AI providers remain
+intentionally unvalidated until the Lightning CPU run.**
 
 ## Implemented locally
 
@@ -18,16 +19,24 @@ inference and benchmarks remain intentionally unvalidated.**
 - Deterministic interview planning, one-call live decision flow, rolling adaptive
   difficulty, duplicate-question protection, final evaluation, and feedback.
 - Atomic JSON session/report persistence and safe generated PDF upload filenames.
-- Voice orchestration from microphone audio through VAD, STT, interview engine,
-  TTS, and browser audio. Local mock TTS emits silence and mock STT returns a
-  clearly marked deterministic transcript; these are plumbing fixtures.
+- A protected realtime state machine, bounded candidate-audio buffer, automatic
+  speech start/end handling, interviewer-playback microphone gating, no-speech
+  recovery, per-session synchronization, reconnect foundation, and cleanup.
+- A lazy FastRTC 0.0.34/WebRTC bridge beneath the Gradio interview screen, with
+  echo cancellation, noise suppression, automatic gain control, and clean
+  connection/audio status. The original Gradio transport remains the safe local
+  fallback when FastRTC is not installed.
+- Voice orchestration from microphone chunks through the configured VAD, STT,
+  one-call live decision, TTS, and browser playback. Per-turn latency records
+  cover speech end through playback readiness.
 - A Gradio setup screen, voice-oriented interview screen, and post-interview
   feedback screen. The live screen has no answer textbox, transcript, scores,
   coaching, or ideal answers.
 - Complete lazy Qwen HTTP, faster-whisper, Kokoro, and Silero provider paths,
   typed health/errors, latency instrumentation, and tests using mocked HTTP/fake
   runtimes. Heavy libraries are never imported in mock mode.
-- Automated unit/integration tests and a five-turn developer demo.
+- Automated unit/integration tests, the original five-turn engine demo, and a
+  deterministic three-turn realtime voice demo.
 
 ## Voice-first flow
 
@@ -37,10 +46,10 @@ Browser microphone -> end-of-turn detection -> speech-to-text
       -> text-to-speech -> browser playback -> repeat
 ```
 
-Local Gradio audio validates the voice workflow without real recognition or
-speech. Phase 1 supports programmatic real-provider calls in Lightning CPU.
-Continuous FastRTC/WebRTC turn-taking, interruption, and browser endpointing are
-Phase 2 and are not part of this implementation.
+Local mocks validate the automatic voice lifecycle without recognition, speech,
+microphone hardware, or a network. Advanced barge-in is deliberately deferred;
+the transport/controller boundary provides the extension point without allowing
+interviewer output to be transcribed as a candidate answer.
 
 ## Why provider abstraction?
 
@@ -69,6 +78,7 @@ Useful verification commands:
 ```powershell
 ./.venv/Scripts/python.exe -m app.main --check
 ./.venv/Scripts/python.exe scripts/demo_mock_interview.py
+./.venv/Scripts/python.exe scripts/demo_realtime_mock.py
 ./.venv/Scripts/python.exe -m pytest -p no:cacheprovider
 ./.venv/Scripts/ruff.exe check .
 ./.venv/Scripts/ruff.exe format --check .
@@ -82,7 +92,7 @@ scores/report as workflow fixtures, not an assessment of a candidate.
 | Environment | LLM | STT | TTS | VAD | Realtime transport |
 | --- | --- | --- | --- | --- | --- |
 | Local/test | mock | mock | mock | mock | Gradio audio |
-| Lightning CPU | qwen | whisper | kokoro | silero | Programmatic/Gradio in Phase 1 |
+| Lightning CPU | qwen | whisper | kokoro | silero | FastRTC/WebRTC (Phase 2) |
 
 Local/test settings reject real providers and reject model downloads. Lightning
 requires `APP_ENV=lightning` plus explicit provider selection. The CPU starting
@@ -96,9 +106,12 @@ Phase 1 provider settings include `LLM_DEVICE`, `LLM_MODEL`, `LLM_BASE_URL`,
 `WHISPER_COMPUTE_TYPE`, `WHISPER_LANGUAGE`, `TTS_DEVICE`, `TTS_VOICE`,
 `TTS_SPEED`, optional `TTS_MODEL_PATH`, `VAD_DEVICE`, optional `VAD_MODEL_PATH`,
 `VAD_THRESHOLD`, `VAD_MIN_SPEECH_MS`, `VAD_MIN_SILENCE_MS`, and
-`PROVIDER_HEALTHCHECK_ENABLED`. Safe values are shown in `.env.example`.
+`PROVIDER_HEALTHCHECK_ENABLED`. Phase 2 adds `VAD_SPEECH_PAD_MS`,
+`MAX_CANDIDATE_TURN_SECONDS`, `NO_SPEECH_TIMEOUT_SECONDS`,
+`NO_SPEECH_END_SECONDS`, `REALTIME_VAD_INTERVAL_MS`, and
+`REALTIME_MIN_TRANSCRIPT_CHARACTERS`. Safe values are shown in `.env.example`.
 
-## Lightning CPU Phase 1
+## Lightning CPU Phase 2
 
 After cloning in a Linux CPU Studio and reviewing the scripts:
 
@@ -111,6 +124,8 @@ bash scripts/start_qwen.sh
 python scripts/verify_real_providers.py --provider llm
 python scripts/verify_real_providers.py --provider stt --audio sample.wav
 python scripts/benchmark_cpu_providers.py --provider all --audio sample.wav
+# After provider checks and realtime environment configuration:
+bash scripts/run_lightning_realtime.sh
 ```
 
 Package setup, model download, service start, verification, and benchmarking are
@@ -123,8 +138,11 @@ separate operations. None runs during application import or startup.
 - Actual Kokoro synthesis, voice assets, and language dependencies.
 - Actual Silero end-of-turn behavior with live microphone conditions.
 - CPU latency and memory results for the selected Qwen/Whisper/Kokoro/Silero assets.
-- FastRTC/WebRTC browser orchestration, automatic pause detection, and barge-in
-  (Phase 2).
+- Real FastRTC/WebRTC browser microphone and speaker behavior.
+- Realtime Silero speech boundaries, Whisper transcription, Qwen live decisions,
+  and Kokoro audio playback together in a live session.
+- End-to-end speech-end-to-playback latency on the Lightning CPU.
+- Advanced candidate barge-in, which is Phase 3 work.
 
 These tasks require Lightning execution and model assets. No cloud provider,
 model, or AI runtime package is needed or used locally.

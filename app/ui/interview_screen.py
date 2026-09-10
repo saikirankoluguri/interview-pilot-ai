@@ -12,6 +12,9 @@ class InterviewScreen:
     status: "gr.Markdown"
     timer: "gr.Textbox"
     voice_state: "gr.Textbox"
+    microphone_state: "gr.Textbox"
+    audio_state: "gr.Textbox"
+    connection_state: "gr.Textbox"
     microphone: object
     speaker: "gr.Audio"
     end: "gr.Button"
@@ -29,10 +32,33 @@ def build_interview_screen(*, realtime: bool = False) -> InterviewScreen:
     with gr.Row():
         timer = gr.Textbox(label="Time remaining", value="30:00", interactive=False)
         state = gr.Textbox(label="Voice state", value="Waiting", interactive=False)
+    with gr.Row():
+        microphone_state = gr.Textbox(label="Microphone state", value="Inactive", interactive=False)
+        audio_state = gr.Textbox(label="Interviewer audio status", value="Idle", interactive=False)
+        connection_state = gr.Textbox(
+            label="Connection status", value="Disconnected", interactive=False
+        )
     if realtime:
         from fastrtc import WebRTC
 
-        microphone = WebRTC(label="Interview microphone", modality="audio", mode="send-receive")
+        microphone = WebRTC(
+            label="Interview microphone",
+            modality="audio",
+            mode="send-receive",
+            track_constraints={
+                "echoCancellation": True,
+                "noiseSuppression": True,
+                "autoGainControl": True,
+                "sampleRate": {"ideal": 16000},
+                "sampleSize": {"ideal": 16},
+                "channelCount": {"exact": 1},
+            },
+            button_labels={
+                "start": "Allow microphone",
+                "stop": "Disconnect microphone",
+                "waiting": "Connecting...",
+            },
+        )
     else:
         microphone = gr.Audio(
             label="Microphone", sources=["microphone"], type="numpy", streaming=True
@@ -44,7 +70,21 @@ def build_interview_screen(*, realtime: bool = False) -> InterviewScreen:
         format="wav",
         visible=not realtime,
     )
-    gr.Markdown("If your browser blocks autoplay, press play on the interviewer audio.")
+    gr.Markdown(
+        "Microphone access is required. If permission, WebRTC, or playback fails, "
+        "allow access and reconnect; use Retry audio when it is available."
+    )
     retry = gr.Button("Retry interviewer audio", visible=not realtime)
     end = gr.Button("End Interview", variant="stop")
-    return InterviewScreen(status, timer, state, microphone, speaker, end, retry)
+    return InterviewScreen(
+        status,
+        timer,
+        state,
+        microphone_state,
+        audio_state,
+        connection_state,
+        microphone,
+        speaker,
+        end,
+        retry,
+    )

@@ -81,7 +81,7 @@ class SileroProvider:
                     threshold=self.settings.vad_threshold,
                     min_speech_duration_ms=self.settings.vad_min_speech_ms,
                     min_silence_duration_ms=self.settings.vad_min_silence_ms,
-                    speech_pad_ms=0,
+                    speech_pad_ms=self.settings.vad_speech_pad_ms,
                 )
                 normalized = tuple(
                     (

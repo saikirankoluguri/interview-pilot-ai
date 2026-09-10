@@ -1,6 +1,6 @@
-# Lightning AI Studio CPU setup
+# Lightning AI Studio CPU and realtime setup
 
-This Phase 1 runbook is prepared but has not been executed. Run it only in the
+This Phase 2 runbook is prepared but has not been executed. Run it only in the
 intended Linux Lightning Studio. It installs CPU runtimes and prepares explicit
 model operations; it does not install CUDA or change machine type.
 
@@ -24,6 +24,7 @@ WHISPER_DEVICE=cpu
 WHISPER_COMPUTE_TYPE=int8
 TTS_DEVICE=cpu
 VAD_DEVICE=cpu
+REALTIME_TRANSPORT=fastrtc
 ALLOW_MODEL_DOWNLOADS=false
 ```
 
@@ -106,7 +107,7 @@ audio duration/generation ratio, and VAD processing duration. Non-streaming
 Ollama does not expose time-to-first-response, so that value remains null rather
 than being fabricated. No benchmark result is claimed in this repository.
 
-## 6. Run the application
+## 6. Run the realtime application
 
 Run regression checks first, then start the application behind Lightning's
 restricted HTTPS port:
@@ -115,11 +116,53 @@ restricted HTTPS port:
 .venv/bin/python -m compileall app scripts tests
 .venv/bin/ruff check .
 .venv/bin/python -m pytest -q -p no:cacheprovider
-bash scripts/run_lightning.sh
+bash scripts/run_lightning_realtime.sh
 ```
 
-Phase 1 validates programmatic provider swapping and the existing Gradio flow.
-FastRTC/WebRTC continuous streaming, browser pause orchestration, barge-in, and
-full-duplex voice are explicitly deferred to Phase 2. The retained
-`scripts/setup_lightning.sh` and `requirements-gpu.txt` remain available for a
-future, separately validated GPU path.
+The realtime launcher refuses non-Linux execution, a non-Lightning environment,
+the fallback transport, mock providers, a missing virtual environment, or a
+FastRTC version other than 0.0.34. It prints provider/device names but never
+credentials. It binds to `127.0.0.1:7860` by default.
+
+The retained `scripts/run_lightning.sh`, `scripts/setup_lightning.sh`, and
+`requirements-gpu.txt` remain available for their existing workflows. Advanced
+barge-in and performance tuning are deferred to Phase 3.
+
+## 7. Connect from Windows
+
+These commands run in three different places.
+
+**Lightning built-in terminal**
+
+```bash
+cd interview-pilot-ai
+git pull
+export APP_ENV=lightning
+set -a
+source .env
+set +a
+bash scripts/setup_lightning_cpu.sh
+# Start/verify Qwen and each real provider as described above.
+bash scripts/run_lightning_realtime.sh
+```
+
+Create the untracked `.env` from
+`deployment/lightning/lightning.env.example`, review it, and keep credentials
+out of the checked-in example.
+
+**Windows local PowerShell**
+
+```powershell
+ssh -N -L 7860:127.0.0.1:7860 <studio>@ssh.lightning.ai
+```
+
+Keep that tunnel process open. Replace `<studio>` with the exact SSH target shown
+by Lightning; do not run the Linux setup or realtime script in PowerShell.
+
+**Windows browser**
+
+Open `http://127.0.0.1:7860`, start an interview, allow microphone access, and
+use headphones when practical. The tunnel keeps the application bound to
+Lightning loopback. Validate permission failure, reconnect,
+interviewer/candidate audio isolation, natural ending, persisted feedback, and
+measured turn latency before claiming the real voice loop works.

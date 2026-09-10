@@ -159,7 +159,16 @@ class InterviewEngine:
             self.store.save(session)
             try:
                 started = perf_counter()
-                decision = await self.live_evaluator.evaluate(session)
+                try:
+                    decision = await self.live_evaluator.evaluate(session)
+                except ProviderError as first_error:
+                    logger.warning(
+                        "session=%s turn=%d provider_retry=1 error=%s",
+                        session_id,
+                        len(session.answers),
+                        type(first_error).__name__,
+                    )
+                    decision = await self.live_evaluator.evaluate(session)
                 latency = TurnLatencyMetrics(llm_seconds=perf_counter() - started)
                 evaluation = decision.evaluation
                 evaluation.overall_score = calculate_live_score(evaluation, self.rubric)

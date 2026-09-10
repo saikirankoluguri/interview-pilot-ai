@@ -80,6 +80,9 @@ def test_ui_has_no_live_transcript_or_answer_box(settings):
         "Job description",
         "Time remaining",
         "Voice state",
+        "Microphone state",
+        "Interviewer audio status",
+        "Connection status",
     }
     # Gradio 5 (the FastRTC-compatible range) serializes private callbacks as false.
     assert all(d.get("api_name") is False for d in config["dependencies"])

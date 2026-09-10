@@ -19,6 +19,7 @@ downloads weights. The UI binds to loopback unless explicitly configured.
 ```powershell
 ./.venv/Scripts/python.exe -m app.main --check
 ./.venv/Scripts/python.exe scripts/demo_mock_interview.py
+./.venv/Scripts/python.exe scripts/demo_realtime_mock.py
 ./.venv/Scripts/python.exe -m pytest -p no:cacheprovider
 ./.venv/Scripts/ruff.exe check .
 ./.venv/Scripts/ruff.exe format --check .
@@ -26,18 +27,29 @@ downloads weights. The UI binds to loopback unless explicitly configured.
 
 Tests disable analytics, set Hugging Face offline mode, and block external socket
 connections. Cloud adapters are exercised with mocked HTTP and fake runtime
-modules. The demo uses temporary synthetic storage unless `--keep-data` is given.
+modules. The demos use temporary synthetic storage unless retention is explicitly
+selected. `demo_realtime_mock.py` drives greeting, three automatic candidate
+turns, closing, and final feedback entirely through mock providers. It needs no
+microphone, FastRTC installation, network, or model.
+
+Run only the realtime unit suite with:
+
+```powershell
+./.venv/Scripts/python.exe -m pytest tests/unit/voice/test_realtime.py -q -p no:cacheprovider
+```
 
 ## Dependency compatibility
 
-Base dependencies contain no AI model runtime. Gradio is constrained to
+Base dependencies contain no AI model runtime and do not install FastRTC. Gradio
+is constrained to
 `>=5.49,<6` because FastRTC 0.0.34 requires Gradio below 6. The deprecated
 `api_name=False` callback option is intentionally used for private callbacks in
 this supported Gradio range; upgrade it to `api_visibility="private"` only when a
 FastRTC release supporting Gradio 6 is selected and the UI is retested.
 
-CPU AI dependencies are isolated in `requirements-ai-cpu.txt`; GPU dependencies
-remain isolated in `requirements-gpu.txt`. Neither belongs on the local laptop.
+CPU AI dependencies, including FastRTC 0.0.34, are isolated in
+`requirements-ai-cpu.txt`; GPU dependencies remain isolated in
+`requirements-gpu.txt`. Neither belongs on the local laptop.
 The base NumPy range is `>=1.26,<2` to remain compatible with common Lightning CPU
 images whose SciPy/matplotlib/scikit-learn wheels still require NumPy below 2.
 Do not run any Lightning setup, model-download, service-start, verification, or
@@ -62,9 +74,10 @@ local commands are:
 ```
 
 Lightning-only commands and configuration are documented in
-`docs/LIGHTNING_SETUP.md`. Phase 1 stops at provider-level VAD. Do not add the
-FastRTC streaming state machine, automatic browser pause handling, interruption,
-or full-duplex audio until Phase 2.
+`docs/LIGHTNING_SETUP.md`. Phase 2 provides the stable automatic turn-taking
+path and a future barge-in extension point. Phase 3 owns real-runtime tuning,
+measured latency optimization, VAD threshold tuning with microphones, and
+advanced interruption behavior.
 
 ## Design rules
 
@@ -73,6 +86,11 @@ Keep provider selection in `app/providers/factory.py` and composition in
 include transcripts, scores, rationale, missing concepts, coaching, or ideal
 answers. Stubs are intentional only for the future Research Agent and deployment
 scaffolds. Use synthetic fixtures and validate all provider output with schemas.
+
+Keep realtime domain orchestration in `RealtimeSessionController`, transitions
+in `TurnManager`, and FastRTC-specific conversion in
+`app/ui/realtime_bridge.py`. Every new playback path must preserve
+interviewer-speaking microphone gating.
 
 ## Private GitHub repository
 

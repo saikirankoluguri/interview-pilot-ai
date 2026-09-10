@@ -20,8 +20,8 @@ class AudioBuffer:
     def __post_init__(self) -> None:
         if not 8000 <= self.sample_rate <= 96000 or len(self.pcm) % 2:
             raise AudioProcessingError("Invalid PCM audio format.")
-        if self.duration > 180:
-            raise AudioProcessingError("Audio turn exceeds the 180-second limit.")
+        if self.duration > 300:
+            raise AudioProcessingError("Audio exceeds the canonical five-minute limit.")
 
     @property
     def duration(self) -> float:
